@@ -3,6 +3,7 @@ using Microsoft.Xrm.Sdk.Query;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.ServiceModel;
 
 namespace TimeEntry
 {
@@ -30,6 +31,22 @@ namespace TimeEntry
       /// </summary>
       private const string MSDYN_END = "msdyn_end";
       /// <summary>
+      ///   Owner of Time Entry atribute key
+      /// </summary>
+      private const string OWNERID = "ownerid";
+      /// <summary>
+      ///  Bookable source Time Entry atribute key
+      /// </summary>
+      private const string MSDYN_BOOKABLERESOURCE = "msdyn_bookableresource";
+      /// <summary>
+      ///  Ettings ID for Time Entry atribute key
+      /// </summary>
+      private const string MSDYN_TIMEENTRYSETTINGSID = "msdyn_timeentrysettingid";
+      /// <summary>
+      ///  Duration of Time Entry atribute key
+      /// </summary>
+      private const string MSDYN_DURATION = "msdyn_duration";
+      /// <summary>
       ///   Max count of plugin launches
       /// </summary>
       private const int MAX_DEPTH = 1;
@@ -39,7 +56,7 @@ namespace TimeEntry
       #region Fields
 
       /// <summary>
-      ///   Конфигурация фильтра.
+      /// FS organization service
       /// </summary>
       private IOrganizationService organizationService;
 
@@ -49,6 +66,9 @@ namespace TimeEntry
 
       public void Execute(IServiceProvider serviceProvider)
       {
+         // Obtain the tracing service
+         ITracingService tracingService = (ITracingService)serviceProvider.GetService(typeof(ITracingService));
+
          IPluginExecutionContext context = (IPluginExecutionContext)serviceProvider.GetService(typeof(IPluginExecutionContext));
 
          if (context.Depth == MAX_DEPTH)
@@ -64,21 +84,35 @@ namespace TimeEntry
                   && timeEntryEntity.Attributes.Keys.Contains(MSDYN_START)
                   && timeEntryEntity.Attributes.Keys.Contains(MSDYN_END))
                {
-                  var startTime = (DateTime)timeEntryEntity.Attributes[MSDYN_START];
-                  var endTime = (DateTime)timeEntryEntity.Attributes[MSDYN_END];
+                  var startTime = (DateTime)timeEntryEntity[MSDYN_START];
+                  var endTime = (DateTime)timeEntryEntity[MSDYN_END];
 
-                  if (startTime < endTime)
+                  try
                   {
-                     var exEntitiesList = getEхistingTimeEntryEntitites(startTime, endTime);
-
-                     while (startTime.Date <= endTime.Date)
+                     //Check for inequality of parameters and check that start date precedes end date,
+                     //additional to the business logic of D365.
+                     if (startTime.Date < endTime.Date)
                      {
-                        if (!exEntitiesList.Contains(startTime.Date))
+                        var exEntitiesList = getEхistingTimeEntryEntitites(startTime, endTime, (Guid)timeEntryEntity[OWNERID]);
+
+                        while (startTime.Date <= endTime.Date)
                         {
-                           copyTimeEntryEntity(timeEntryEntity, startTime, endTime);
+                           if (!exEntitiesList.Contains(startTime.Date))
+                           {
+                              copyTimeEntryEntity(timeEntryEntity, startTime, endTime);
+                           }
+                           startTime = startTime.AddDays(1);
                         }
-                        startTime = startTime.AddDays(1);
                      }
+                  }
+                  catch (FaultException<OrganizationServiceFault> ex)
+                  {
+                     throw new InvalidPluginExecutionException($"An error occurred in {nameof(TimeEntryPlugin)}.", ex);
+                  }
+                  catch (Exception ex)
+                  {
+                     tracingService.Trace("TimeEntryPlugin: {0}", ex.ToString());
+                     throw;
                   }
                }
             }
@@ -102,10 +136,10 @@ namespace TimeEntry
       private void copyTimeEntryEntity(Entity timeEntryEntity, DateTime start, DateTime end)
       {
          Entity newEntity = new Entity(MSDYN_TIMEENTRY);
-         newEntity["ownerid"] = timeEntryEntity["ownerid"];
-         newEntity["msdyn_bookableresource"] = timeEntryEntity["msdyn_bookableresource"];
-         newEntity["msdyn_timeentrysettingid"] = timeEntryEntity["msdyn_timeentrysettingid"];
-         newEntity["msdyn_duration"] = timeEntryEntity["msdyn_duration"];
+         newEntity[OWNERID] = timeEntryEntity[OWNERID];
+         newEntity[MSDYN_BOOKABLERESOURCE] = timeEntryEntity[MSDYN_BOOKABLERESOURCE];
+         newEntity[MSDYN_TIMEENTRYSETTINGSID] = timeEntryEntity[MSDYN_TIMEENTRYSETTINGSID];
+         newEntity[MSDYN_DURATION] = timeEntryEntity[MSDYN_DURATION];
          newEntity[MSDYN_START] = start;
          newEntity[MSDYN_END] = end;
 
@@ -117,8 +151,9 @@ namespace TimeEntry
       /// </summary>
       /// <param name="start">From time</param>
       /// <param name="end">To time</param>
+      /// <param name="ownerId">Owner of entry</param>
       /// <returns>List of entity dates</returns>
-      private IEnumerable<DateTime> getEхistingTimeEntryEntitites(DateTime start, DateTime end)
+      private IEnumerable<DateTime> getEхistingTimeEntryEntitites(DateTime start, DateTime end, Guid ownerId)
       {
          var timeEntryEntityRequest = new QueryExpression
          {
@@ -133,7 +168,13 @@ namespace TimeEntry
                                  AttributeName = MSDYN_START,
                                  Operator = ConditionOperator.Between,
                                  Values = { start, end }
-                              }
+                              },
+                              new ConditionExpression
+                              {
+                              AttributeName = OWNERID,
+                              Operator = ConditionOperator.Equal,
+                              Values = { ownerId }
+            }
                            }
             }
          };
@@ -144,3 +185,4 @@ namespace TimeEntry
       #endregion
    }
 }
+

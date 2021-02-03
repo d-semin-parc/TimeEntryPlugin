@@ -2,6 +2,7 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Query;
+
 using TimeEntry;
 using TimeEntryPluginUnitTest;
 
@@ -9,9 +10,9 @@ namespace TimeEntryUnitTest
 {
    [TestClass]
    public class TimeEntryPluginUnitTest : BaseUnitTest
-   { 
+   {
 
-      [TestMethod ("Check time entry creation with start and end on the same day")]
+      [TestMethod("Check time entry creation with start and end on the same day")]
       public void Add_SameDayTimeEntry()
       {
          Entity target = createFakeTimeEntryEntity(DateTime.Now, DateTime.Now);
@@ -48,7 +49,7 @@ namespace TimeEntryUnitTest
          executePluginWithTarget(target);
          var duration = (endDate - startDate).Days;
 
-         Assert.AreEqual(duration+1, getCountTimeEntries());
+         Assert.AreEqual(duration + 1, getCountTimeEntries());
       }
 
       [TestMethod("Check time entry creation with invalid start and end dates")]
@@ -64,13 +65,14 @@ namespace TimeEntryUnitTest
       public void Check_ExistsEntryOnThisDay()
       {
          var service = FakeСontext.GetOrganizationService();
-         var exEntity = createFakeTimeEntryEntity(DateTime.Now, DateTime.Now);
+         var fakeOwnerId = Guid.NewGuid();
+         var exEntity = createFakeTimeEntryEntity(DateTime.Now, DateTime.Now, fakeOwnerId);
 
          service.Create(exEntity);
 
          if (getCountTimeEntries() == 1)
-         { 
-            var target = createFakeTimeEntryEntity(DateTime.Now.AddDays(-2), DateTime.Now.AddDays(2));
+         {
+            var target = createFakeTimeEntryEntity(DateTime.Now.AddDays(-2), DateTime.Now.AddDays(2), fakeOwnerId);
             executePluginWithTarget(target);
 
             Assert.AreEqual(5, getCountTimeEntries());
@@ -94,7 +96,7 @@ namespace TimeEntryUnitTest
       /// <param name="start">Start date of time entity</param>
       /// <param name="end">End date of time entity</param>
       /// <returns>Time entity</returns>
-      private Entity createFakeTimeEntryEntity(DateTime start, DateTime end)
+      private Entity createFakeTimeEntryEntity(DateTime start, DateTime end, Guid? ownerId = null)
       {
          Entity entity = new Entity()
          {
@@ -106,7 +108,7 @@ namespace TimeEntryUnitTest
          entity.Attributes.Add("msdyn_end", end);
          entity.Attributes.Add("msdyn_bookableresource", Guid.NewGuid());
          entity.Attributes.Add("msdyn_duration", (end - start).TotalDays);
-         entity.Attributes.Add("ownerid", Guid.NewGuid());
+         entity.Attributes.Add("ownerid", ownerId ?? Guid.NewGuid());
          entity.Attributes.Add("msdyn_timeentrysettingid", Guid.NewGuid());
          return entity;
       }
@@ -120,8 +122,8 @@ namespace TimeEntryUnitTest
          var timeEntryEntityRequest = new QueryExpression
          {
             EntityName = "msdyn_timeentry",
-            ColumnSet = new ColumnSet("msdyn_start"),
-         };        
+            ColumnSet = new ColumnSet("msdyn_start", "ownerid"),
+         };
 
          var service = FakeСontext.GetOrganizationService();
          var collection = service.RetrieveMultiple(timeEntryEntityRequest);
