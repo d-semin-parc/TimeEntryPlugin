@@ -10,17 +10,14 @@ namespace TimeEntryUnitTest
    [TestClass]
    public class TimeEntryPluginUnitTest : BaseUnitTest
    { 
-      /// <summary>
-      /// Checks 
-      /// </summary>
+
       [TestMethod ("Check time entry creation with start and end on the same day")]
       public void Add_SameDayTimeEntry()
       {
          Entity target = createFakeTimeEntryEntity(DateTime.Now, DateTime.Now);
          executePluginWithTarget(target);
-         var entries = getCountTimeEntries();
 
-         Assert.AreEqual(1, entries);
+         Assert.AreEqual(1, getCountTimeEntries());
       }
 
       [TestMethod("Check time entry creation with a duration of 1 day")]
@@ -28,9 +25,8 @@ namespace TimeEntryUnitTest
       {
          Entity target = createFakeTimeEntryEntity(DateTime.Now, DateTime.Now.AddDays(1));
          executePluginWithTarget(target);
-         var entries = getCountTimeEntries();
 
-         Assert.AreEqual(2, entries);
+         Assert.AreEqual(2, getCountTimeEntries());
       }
 
       [TestMethod("Check time entry creation with a duration of 5 days")]
@@ -38,9 +34,21 @@ namespace TimeEntryUnitTest
       {
          Entity target = createFakeTimeEntryEntity(DateTime.Now, DateTime.Now.AddDays(5));
          executePluginWithTarget(target);
-         var entries = getCountTimeEntries();
 
-         Assert.AreEqual(6, entries);
+         Assert.AreEqual(6, getCountTimeEntries());
+      }
+
+      [TestMethod("Check time entry creation with a duration of 5 years")]
+      public void Add_ManyYearsTimeEntry()
+      {
+         var startDate = DateTime.Now;
+         var endDate = DateTime.Now.AddYears(10);
+
+         Entity target = createFakeTimeEntryEntity(startDate, endDate);
+         executePluginWithTarget(target);
+         var duration = (endDate - startDate).Days;
+
+         Assert.AreEqual(duration+1, getCountTimeEntries());
       }
 
       [TestMethod("Check time entry creation with invalid start and end dates")]
@@ -48,9 +56,8 @@ namespace TimeEntryUnitTest
       {
          Entity target = createFakeTimeEntryEntity(DateTime.Now, DateTime.Now.AddDays(-2));
          executePluginWithTarget(target);
-         var entries = getCountTimeEntries();
 
-         Assert.AreEqual(1, entries);
+         Assert.AreEqual(1, getCountTimeEntries());
       }
 
       [TestMethod("Check time entry creation if there are records in the database")]
@@ -61,14 +68,13 @@ namespace TimeEntryUnitTest
 
          service.Create(exEntity);
 
-         var entries = getCountTimeEntries();
-         Assert.AreEqual(1, entries);
+         if (getCountTimeEntries() == 1)
+         { 
+            var target = createFakeTimeEntryEntity(DateTime.Now.AddDays(-2), DateTime.Now.AddDays(2));
+            executePluginWithTarget(target);
 
-         var target = createFakeTimeEntryEntity(DateTime.Now.AddDays(-2), DateTime.Now.AddDays(2));
-         executePluginWithTarget(target);
-
-         entries = getCountTimeEntries();
-         Assert.AreEqual(5, entries);
+            Assert.AreEqual(5, getCountTimeEntries());
+         }
       }
 
       /// <summary>
@@ -119,12 +125,12 @@ namespace TimeEntryUnitTest
 
          var service = FakeСontext.GetOrganizationService();
          var collection = service.RetrieveMultiple(timeEntryEntityRequest);
-         return collection == null ? 0 : collection.Entities.Count;
+         return collection?.Entities.Count ?? 0;
       }
 
 
       /// <summary>
-      /// Triggered pagin execution
+      /// Triggered plagin execution
       /// </summary>
       /// <param name="target">Primary entity</param>
       private void executePluginWithTarget(Entity target)
