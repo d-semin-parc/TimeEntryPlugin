@@ -80,6 +80,9 @@ namespace TimeEntry
             {
                Entity timeEntryEntity = (Entity)context.InputParameters[TARGET];
 
+               /// The enterprise solutions make sense to make the business logic below 
+               /// in a separate class for better reusability and test coverage, 
+               /// but because the test plugin has a minimal logic, left this code here.
                if (timeEntryEntity.LogicalName == MSDYN_TIMEENTRY
                   && timeEntryEntity.Attributes.Keys.Contains(MSDYN_START)
                   && timeEntryEntity.Attributes.Keys.Contains(MSDYN_END))
@@ -89,8 +92,8 @@ namespace TimeEntry
 
                   try
                   {
-                     //Check for inequality of parameters and check that start date precedes end date,
-                     //additional to the business logic of D365.
+                     // Check for inequality of parameters and check that start date precedes end date,
+                     // additional to the business logic of D365.
                      if (startTime.Date < endTime.Date)
                      {
                         var exEntitiesList = getEхistingTimeEntryEntitites(startTime, endTime, (Guid)timeEntryEntity[OWNERID]);
