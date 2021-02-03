@@ -1,5 +1,5 @@
 # TimeEntryPlugin
-Plugin interact with the Time Entry Entity in D365
+Plugin to interact with the Time Entry Entity in D365
 
 ## Technical task
 On creation of a Time Entry record the plugin should evaluate if the start and end date contain different values from each other. In the event that the start and end date are different then a time entry record should be created for every date in the date range from start to end date. The plugin should also ensure that there are no duplicate time entry records created per date. 
